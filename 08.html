@@ -1,0 +1,269 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>馬茲提卡 - 廢棄斥候營地：「枯木崗」</title>
+    <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@700&family=Noto+Serif+TC:wght@400;700&display=swap" rel="stylesheet">
+    <style>
+        :root { --gold: #d4af37; --bg-dark: rgba(15, 12, 10, 0.92); --text: #e0d0b0; --green-glow: #50c878; }
+        body, html { 
+            margin: 0; padding: 0; width: 100%; height: 100%; 
+            font-family: 'Noto Serif TC', serif; 
+            display: flex; justify-content: center; align-items: center; 
+            background-color: #0a0a0a; 
+            background-image: url('map/cover.webp'); 
+            background-size: cover; background-position: center; background-attachment: fixed; 
+        }
+
+        #game-window {
+            width: 1200px; height: 720px; background: #000;
+            border: 3px solid var(--gold); border-radius: 8px;
+            box-shadow: 0 15px 50px rgba(0,0,0,0.9);
+            display: flex; flex-direction: column; overflow: hidden; position: relative;
+        }
+
+        #master-nav {
+            height: 60px; background: #1a1511; border-bottom: 2px solid var(--gold);
+            display: flex; align-items: center; padding: 0 30px; gap: 20px; z-index: 100; flex-shrink: 0;
+        }
+        .nav-brand { color: var(--gold); font-family: 'Cinzel', serif; font-size: 1.4rem; margin-right: auto; font-weight: bold; letter-spacing: 2px; }
+        .nav-btn {
+            text-decoration: none; border: 1px solid transparent; color: var(--text);
+            font-size: 1.1rem; padding: 6px 15px; cursor: pointer; transition: 0.3s; font-family: 'Noto Serif TC', serif;
+        }
+        .nav-btn:hover { border-bottom: 1px solid var(--gold); color: #fff; }
+        .nav-btn.active { border: 1px solid var(--gold); background: rgba(212, 175, 55, 0.1); border-radius: 4px; color: var(--gold); }
+
+        #viewer-area { flex: 1; position: relative; width: 100%; height: 100%; overflow: hidden; }
+        .scene-background { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background-image: url('map/deadwood.webp'); background-size: cover; background-position: center; filter: brightness(0.45); z-index: 0; transform: scale(1.02); }
+        .game-ui { position: relative; z-index: 10; width: 100%; height: 100%; display: flex; justify-content: space-between; }
+        
+        .character-display-zone { position: relative; flex: 1; height: 100%; pointer-events: none; }
+        .character-sprite { 
+            position: absolute; opacity: 0; transform: translateX(-20px); transition: 0.5s ease; 
+            filter: drop-shadow(0 0 25px rgba(0,0,0,0.9)); z-index: 1; 
+        }
+        .character-sprite.active { opacity: 1; transform: translateX(0); }
+        
+        .npc-story-overlay { 
+            position: absolute; right: 30px; bottom: 40px; 
+            width: 360px; max-height: 520px; overflow-y: auto;
+            background: rgba(10, 8, 6, 0.95); border: 1px solid var(--gold); padding: 25px; 
+            color: var(--text); border-radius: 4px; 
+            box-shadow: 0 0 30px rgba(0,0,0,0.9), inset 0 0 15px rgba(212, 175, 55, 0.1); 
+            opacity: 0; transform: translateX(20px); transition: all 0.4s ease; 
+            text-align: justify; line-height: 1.7; font-size: 0.95rem; pointer-events: auto; z-index: 2; 
+        }
+        .npc-story-overlay::-webkit-scrollbar { width: 4px; }
+        .npc-story-overlay::-webkit-scrollbar-thumb { background: rgba(212, 175, 55, 0.4); }
+        .npc-story-overlay.active { opacity: 1; transform: translateX(0); }
+        .npc-story-overlay strong { color: var(--gold); font-size: 1.2rem; font-family: 'Cinzel', 'Noto Serif TC', serif; display: block; border-bottom: 1px solid rgba(212, 175, 55, 0.3); padding-bottom: 8px; margin-bottom: 12px; letter-spacing: 1px; }
+
+        .info-panel { width: 420px; height: 100%; background: var(--bg-dark); border-left: 2px solid var(--gold); display: flex; box-shadow: -15px 0 40px rgba(0,0,0,0.9); flex-shrink: 0; z-index: 3; }
+        .bookmarks { width: 50px; height: 100%; background: #2c251d; display: flex; flex-direction: column; border-right: 1px solid var(--gold); }
+        .bookmark-btn { writing-mode: vertical-lr; padding: 18px 10px; color: var(--gold); cursor: pointer; border-bottom: 1px solid rgba(212, 175, 55, 0.2); opacity: 0.7; letter-spacing: 3px; font-weight: bold; transition: 0.3s; font-size: 0.85rem; }
+        .bookmark-btn:hover { opacity: 1; background: rgba(212, 175, 55, 0.1); }
+        .bookmark-btn.active { opacity: 1; background: rgba(212, 175, 55, 0.2); border-left: 4px solid var(--gold); } 
+        
+        .scroll-content { flex: 1; padding: 20px; overflow-y: auto; color: var(--text); line-height: 1.8; }
+        .scroll-content::-webkit-scrollbar { width: 6px; }
+        .scroll-content::-webkit-scrollbar-thumb { background: rgba(212, 175, 55, 0.5); border-radius: 3px; }
+        
+        .info-panel h2 { font-family: 'Cinzel', serif; color: var(--gold); border-bottom: 1px solid var(--gold); margin: 0 0 15px 0; font-size: 1.5rem; }
+        .section { display: none; animation: fadeInPage 0.4s ease; }
+        .section.active { display: block; }
+        
+        .interaction-card { background: rgba(255,255,255,0.03); padding: 12px; border: 1px solid rgba(212, 175, 55, 0.1); margin-bottom: 12px; cursor: pointer; transition: 0.3s; }
+        .interaction-card:hover { border-color: var(--gold); background: rgba(212, 175, 55, 0.1); box-shadow: 0 0 15px rgba(212, 175, 55, 0.2); }
+        .interaction-card strong { color: var(--gold); display: block; margin-bottom: 4px; font-size: 1.05rem; }
+        .interaction-card span { font-size: 0.85rem; color: #a89278; }
+
+        .gm-read { font-style: italic; color: #b8a686; background: rgba(0,0,0,0.4); padding: 12px; border-left: 3px solid #8b5a2b; font-size: 0.95rem; line-height: 1.7; margin-bottom: 15px; }
+        .lore-desc { font-size: 0.95rem; text-align: justify; margin-bottom: 15px; }
+        .status-badge { display: inline-block; padding: 2px 8px; font-size: 0.75rem; border-radius: 3px; margin-bottom: 6px; font-weight: bold; }
+        .badge-danger { background: rgba(139,0,0,0.25); color: #ff6b6b; border: 1px solid #8b0000; }
+        .badge-core { background: rgba(212,175,55,0.2); color: var(--gold); border: 1px solid var(--gold); }
+        @keyframes fadeInPage { from { opacity: 0; } to { opacity: 1; } }
+    </style>
+</head>
+<body>
+
+<div id="game-window">
+    <nav id="master-nav">
+        <div class="nav-brand">黑曜黎明：奧克塔卡之誓冒險札記</div>
+        <a href="index.html" class="nav-btn active">回地圖</a>
+        <a href="item.html" class="nav-btn">獲得物品</a> 
+        <a href="journals.html" class="nav-btn">冒險筆記</a>
+    </nav>
+
+    <main id="viewer-area">
+        <div class="scene-background"></div>
+        <div class="game-ui">
+            <div class="character-display-zone">
+                <img id="clue-sprite" class="character-sprite" src="" alt="">
+                <div id="story-box" class="npc-story-overlay"></div>
+            </div>
+
+            <div class="info-panel">
+                <div class="bookmarks">
+                    <div class="bookmark-btn active" onclick="showTab('intro')">營地</div>
+                    <div class="bookmark-btn" onclick="showTab('investigation')">現場勘查</div>
+                    <div class="bookmark-btn" onclick="showTab('log')">遺留日誌</div>
+                </div>
+
+                <div class="scroll-content">
+                    <div id="intro" class="section active">
+                        <h2>枯木崗斥候營地</h2>
+                        <div class="gm-read">
+                            「離開關隘後，你們沿著泥濘的古道深入山谷。淡綠色的霧氣在你們腳踝邊纏繞，空氣中不再有泥土的腥味，而是一種令人作嘔的、像是燒焦的甜味。<br><br>
+                            在前方的高地上，軍方地圖標記的第一個斥候營地安靜得可怕。防禦木樁已經腐蝕發黑，獸皮帳篷被撕成碎片。這裡沒有活人，只有散落的武器與乾涸發黑的血跡。」
+                        </div>
+                        <div class="lore-desc">
+                            <p>此地原本作為奧克塔卡深入山谷的前哨觀測哨，如今已徹底荒廢。點擊「現場勘查」分頁，可針對現場的各個疑點展開深度檢定。</p>
+                        </div>
+                    </div>
+
+                    <div id="investigation" class="section">
+                        <h2>營地調查點</h2>
+                        <div class="lore-desc">
+                            <p>點擊調查點檢視現場物證特寫與檢定解析：</p>
+                        </div>
+
+                        <div class="interaction-card" onclick="loadClue('weapons')">
+                            <span class="status-badge badge-danger">痕跡</span>
+                            <strong>散落的武器與防具</strong>
+                        </div>
+
+
+                        <div class="interaction-card" onclick="loadClue('tracks')">
+                            <span class="status-badge badge-core">核心劇情線索</span>
+                            <strong>地面的錯綜足跡</strong>
+                        </div>
+                    </div>
+
+                    <div id="log" class="section">
+                        <h2>關鍵物證</h2>
+                        <div class="lore-desc">
+                            <p>在撕裂的帳篷角落發現的殘破軍用手記：</p>
+                        </div>
+
+                        <div class="interaction-card" onclick="loadClue('diary')">
+                            <span class="status-badge badge-core">重要文獻</span>
+                            <strong>染血的斥候日誌殘頁</strong>
+                            <span>被綠色黏液浸透一半的字跡</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+</div>
+
+<script>
+    const clueData = {
+        weapons: {
+            name: "散落的武器與防具",
+            title: "【調查】或【洞察】檢定結果",
+            img: "clues/weapons.webp",
+            isHorizontal: false,
+            bg: null,
+            story: "<strong>【表面景象】</strong>地上散落著許多黑曜石長矛和破裂的木盾。<br><br><strong>【檢定成功發現】</strong>這些武器刃口上沒有怪物的血跡，全都是人類的血跡。更致命的是，所有防禦工事被破壞的方向都是<strong>「從內向外」</strong>的。這證明營地並非遭受外敵襲擊，而是駐紮的斥候內部發生了突變，陷入自相殘殺。"
+        },
+        brazier: {
+            name: "中央綠焰火盆",
+            title: "【奧秘】或【自然】檢定結果",
+            img: "clues/brazier.webp",
+            isHorizontal: false,
+            bg: null,
+            story: "<strong>【表面景象】</strong>火盆裡燃燒著幽綠火苗，靠近時感受不到絲毫熱度，反而讓人骨髓發冷。<br><br><strong>【檢定成功發現】</strong>火盆裡燃燒的根本不是木柴或柯巴脂，而是<strong>人的白骨</strong>！瘴氣濃度達到一定程度後，會點燃屍體骨髓中的殘存魔力。這是山谷深處的殘酷警告：死者若不被徹底燒成灰燼，就會成為綠焰的溫床。"
+        },
+        tracks: {
+            name: "地面的錯綜足跡",
+            title: "【生存】或【追蹤】檢定結果",
+            img: "clues/tracks.webp",
+            isHorizontal: false,
+            bg: null,
+            story: "<strong>【檢定成功發現】</strong>泥濘中可清晰辨識出兩個不同時期的足跡：<br><br>✦ <strong>舊足跡（數月前）：</strong>一串步履蹣跚、刻意避開低窪濃霧的腳印（阿莫克斯）。他在岩石上以匕首刻下「尋脈者安全標記（倒三角形內含波浪紋）」，指向營地後方隱蔽小徑。<br><br>✦ <strong>新足跡（數日前）：</strong>一整隊穿著重型戰靴、步伐整齊劃一的軍隊（貝拉多親衛隊）不久前經過，精準踩著阿莫克斯留下的標記前進。"
+        },
+        diary: {
+            name: "染血的斥候日誌殘頁",
+            title: "關鍵道具",
+            img: "clues/journal.webp",
+            isHorizontal: false,
+            bg: null,
+            story: "<em>「…霧越來越濃了。老頭（阿莫克斯）是對的，他在石頭上刻的記號確實能避開那些會讓人吐血的地洞。我們應該跟著他逃走的，但隊長不准。隊長說我們要守在這裡等總督的大部隊…<br><br>…隊長一直在咳嗽，他咳出來的痰裡有綠色的光。昨天晚上，他拔出劍砍下了副官的頭，然後他的下巴掉到了胸口上，但他還在笑……<br><br>…總督的親衛隊來了！感謝神明！他們來救……不！他們為什麼不救人？他們直接把隊長釘死在地上，逼問我們老頭往哪跑了……那些豹騎士的眼睛裡，為什麼也有那種綠色的光？！」</em>"
+        }
+    };
+
+    let defaultSceneBg = ""; 
+    window.addEventListener('DOMContentLoaded', () => {
+        const bgEl = document.querySelector('.scene-background');
+        if (bgEl) {
+            defaultSceneBg = window.getComputedStyle(bgEl).backgroundImage.replace(/url\(['"]?(.*?)['"]?\)/i, '$1');
+        }
+    });
+
+    function showTab(id) {
+        document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+        document.querySelectorAll('.bookmark-btn').forEach(b => b.classList.remove('active'));
+        document.getElementById(id).classList.add('active');
+        event.currentTarget.classList.add('active');
+        
+        document.getElementById('clue-sprite').classList.remove('active');
+        document.getElementById('story-box').classList.remove('active');
+
+        const sceneBg = document.querySelector('.scene-background');
+        if(sceneBg && defaultSceneBg) {
+            sceneBg.style.backgroundImage = `url('${defaultSceneBg}')`;
+        }
+    }
+
+    function loadClue(key) {
+        const sprite = document.getElementById('clue-sprite');
+        const storyBox = document.getElementById('story-box');
+        const sceneBg = document.querySelector('.scene-background'); 
+        const data = clueData[key];
+        
+        sprite.classList.remove('active');
+        storyBox.classList.remove('active');
+        
+        setTimeout(() => {
+            sprite.src = data.img;
+            
+            if (sceneBg) {
+                if (data.bg) {
+                    sceneBg.style.backgroundImage = `url('${data.bg}')`;
+                } else if (defaultSceneBg) {
+                    sceneBg.style.backgroundImage = `url('${defaultSceneBg}')`;
+                }
+            }
+
+            if (data.isHorizontal) {
+                sprite.style.maxWidth = '950px';
+                sprite.style.width = '950px';
+                sprite.style.height = '100%';
+                sprite.style.left = '0px';
+                sprite.style.bottom = '0px';
+                sprite.style.objectFit = 'cover';
+                sprite.style.objectPosition = '85% center';
+                sprite.style.zIndex = '0';
+            } else {
+                sprite.style.maxWidth = '550px';
+                sprite.style.width = 'auto';
+                sprite.style.height = '100%';
+                sprite.style.left = '40px';
+                sprite.style.bottom = '0px';
+                sprite.style.objectFit = 'contain';
+                sprite.style.objectPosition = 'bottom left';
+                sprite.style.zIndex = '1';
+            }
+            
+            storyBox.innerHTML = `<strong>${data.name} <span style="font-size:0.85rem; color:#888; font-family:'Noto Serif TC';">| ${data.title}</span></strong>${data.story}`;
+            sprite.classList.add('active');
+            storyBox.classList.add('active');
+        }, 250);
+    }
+</script>
+</body>
+</html>
